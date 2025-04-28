@@ -34,7 +34,7 @@
             this.buttonRegister.TabIndex = 31;
             this.buttonRegister.Text = "Register";
             this.buttonRegister.UseVisualStyleBackColor = true;
-            this.buttonRegister.Click += new System.EventHandler(this.buttonRegister_Click_1);
+            this.buttonRegister.Click += new System.EventHandler(this.buttonRegister_Click);
             // 
             // textBoxPassword
             // 
@@ -89,7 +89,7 @@
             this.buttonLogin.TabIndex = 25;
             this.buttonLogin.Text = "Login";
             this.buttonLogin.UseVisualStyleBackColor = true;
-            this.buttonLogin.Click += new System.EventHandler(this.buttonLogin_Click_1);
+            this.buttonLogin.Click += new System.EventHandler(this.buttonLogin_Click);
             // 
             // Welcomelabel
             // 
@@ -111,7 +111,7 @@
             this.Instructionlabel.TabIndex = 23;
             this.Instructionlabel.Text = "Enter UserName And Password To Login :";
             // 
-            // Form1
+            // LoginForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
@@ -126,8 +126,8 @@
             this.Controls.Add(this.buttonLogin);
             this.Controls.Add(this.Welcomelabel);
             this.Controls.Add(this.Instructionlabel);
-            this.Name = "Form1";
-            this.Text = "BuyBooksOnline";
+            this.Name = "LoginForm";
+            this.Text = "Login Page";
             this.ResumeLayout(false);
             this.PerformLayout();
 

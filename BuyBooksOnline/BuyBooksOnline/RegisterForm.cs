@@ -1,12 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Diagnostics;
-using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace BuyBooksOnline
@@ -18,42 +10,59 @@ namespace BuyBooksOnline
             InitializeComponent();
         }
 
+        // event handler for regsitering the new user
         private void buttonRegisterUser_Click(object sender, EventArgs e)
         {
-            string username;
-            int password;
+            string name,email,address;
+            int password = 0;
 
             try
             {
-                username = textBoxRegisterUsername.Text;
+
+                name = textBoxRegisterUsername.Text;
+
+                email = textBoxRegsiterEmail.Text;
+
+                address = textBoxRegisterAddress.Text;
+
                 password = int.Parse(textBoxRegisterPassword.Text);
 
                 try
                 {
-
                     BookRepository repository = new ConcreteBookRepository(Database.Instance.GetConnection());
-                    User user = new User { Name = username };
-
-                    repository.registerUser(user,password);
-
-                    MessageBox.Show("Registration Successful...");
+                    User user;
+                   if (name != "" && email != "" && address != "" && password != 0)
+                    {
+                        // BookRepository instance
+                        user = new User { Name = name, Email = email, Address = address, Password = password };
+                        // registering the user
+                        repository.registerUser(user);
+                    }
+                    else
+                    {
+                        MessageBox.Show("Enter All the Details");
+                    }
+                   
+                    //MessageBox.Show("Registration Successful...");
 
                 }
                 catch (Exception)
                 {
-                    MessageBox.Show("Can't Register...");
+                    MessageBox.Show("Errro : Can't Register...");
                 }
 
-               
-
-                LoginForm loginForm = new LoginForm();
-                loginForm.Show();
-                this.Hide();
             }
             catch (Exception)
             {
-                MessageBox.Show("Enter Correct Usename and password To Register...");
+                MessageBox.Show("Enter Correct Details To Register\nPassword must be numeric value...");
             }
+
+            // refreshing the textboxes
+            textBoxRegisterUsername.Clear();
+            textBoxRegsiterEmail.Clear();
+            textBoxRegisterPassword.Clear();
+            textBoxRegisterAddress.Clear();
+
 
         }
     }

@@ -17,6 +17,18 @@ namespace BuyBooksOnline
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new LoginForm());
+
+            LoginForm loginForm = new LoginForm();
+            loginForm.Close();
+
+            RegisterForm registerForm = new RegisterForm();
+            registerForm.Close();
+
+            CustomerForm customerForm = new CustomerForm();
+            customerForm.Close();
+
+            AdminForm adminForm = new AdminForm();
+            adminForm.Close();
         }
     }
 }

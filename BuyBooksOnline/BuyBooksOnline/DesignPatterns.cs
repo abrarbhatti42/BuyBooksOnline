@@ -1,32 +1,26 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Data.OleDb;
 using System.Data;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
-using System.Configuration;
-using System.Data.SqlClient;
 
 namespace BuyBooksOnline
 {
 
     /* 
-      ADMIN 
+      
+      Defualt password for all the users is numeric and 1234 fixed
 
-      username : admin
+      ADMIN  
+
+      username : admin@gmail.com
       password ; 1234
 
       CUSTOMER/USER
 
-      username : user
+      username : user@gmail.com
       password ; 1234
     
    */
-
-
-
 
 
     // Creational Design Pattern for database : Singleton
@@ -37,7 +31,7 @@ namespace BuyBooksOnline
     public class Database
     {
         // connection string for OleDbdatabase
-        private static readonly string connectionString = "Provider=Microsoft.ACE.OLEDB.12.0;Data Source=myDB2.accdb;";
+        private static readonly string connectionString = "Provider=Microsoft.ACE.OLEDB.12.0;Data Source=myDB.accdb;";
 
         // initializing database instance
         private static Database instance;
@@ -87,17 +81,22 @@ namespace BuyBooksOnline
                         createAuthorsTableCommand.ExecuteNonQuery();
                     }
 
-                    // fro Users table exististense
+                    // for Users table existence
                     if (!TableExists(connection, "Users"))
                     {
                         string createUsersTableQuery = @"
                                                         CREATE TABLE Users (
-                                                            UserId AUTOINCREMENT PRIMARY KEY,
-                                                            Name NVARCHAR(100) NOT NULL
+                                                            UserId COUNTER PRIMARY KEY,
+                                                            Name NVARCHAR(100) NOT NULL,
+                                                            Email NVARCHAR(255) NOT NULL,
+                                                            Address NVARCHAR(255) NOT NULL,
+                                                            [Password] INT NOT NULL
                                                         );";
                         OleDbCommand createUsersTableCommand = new OleDbCommand(createUsersTableQuery, connection);
                         createUsersTableCommand.ExecuteNonQuery();
                     }
+
+
 
                     // for Books table exististense
                     if (!TableExists(connection, "Books"))
@@ -136,7 +135,7 @@ namespace BuyBooksOnline
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error creating tables: " + ex.Message);
+                MessageBox.Show("Error creating tables: " + ex.Message +" " + ex.StackTrace);
             }
         }
 
@@ -157,7 +156,7 @@ namespace BuyBooksOnline
         // Getting connection of oledbConnection
         private OleDbConnection GetOleDbConnection()
         {
-            string connectionString = @"Provider=Microsoft.ACE.OLEDB.12.0;Data Source=myDB2.accdb;";
+            string connectionString = @"Provider=Microsoft.ACE.OLEDB.12.0;Data Source=myDB.accdb;";
             return new OleDbConnection(connectionString);
         }
 
@@ -169,7 +168,7 @@ namespace BuyBooksOnline
         public int Id { get; set; }
         public string Title { get; set; }
         public string Author { get; set; }
-        public decimal Price { get; set; }
+        public double Price { get; set; }
         public int Quantity { get; set; }
     }
 
@@ -178,6 +177,9 @@ namespace BuyBooksOnline
     {
         public int Id { get; set; }
         public string Name { get; set; }
+        public string Email { get; set; }
+        public string Address { get; set; }
+        public int Password { get; set; }
         public bool IsAdmin { get; set; }
     }
 
@@ -198,11 +200,13 @@ namespace BuyBooksOnline
         // defining components
         public abstract void AddBook(Book book);
         public abstract void BookSold(int bookid);
-        public abstract void RemoveBook(int bookid);
+        public abstract void RemoveBook(int bookId);
         public abstract DataTable ViewInventory();
         public abstract DataTable BrowseBooks();
+        public abstract DataTable ViewUsers();
         public abstract void RateBook(int bookId, int rating, string username);
-        public abstract void registerUser(User user, int password);
+        public abstract void registerUser(User user);
+        public abstract bool LoginCheck(string email, int password);
         public abstract bool UserExists(string username);
     }
 
@@ -211,28 +215,32 @@ namespace BuyBooksOnline
     {
         public ConcreteBookRepository(OleDbConnection connection) : base(connection) { }
 
-        public override void registerUser(User user, int password)
+        // method to register the new user
+        public override void registerUser(User user)
         {
             try
             {
                 connection.Open();
-                string insertUserQuery = "INSERT INTO Users (Name) VALUES (@User);";
+                string insertUserQuery = "INSERT INTO Users (Name,Email,Address,[Password]) VALUES (@Name,@Email,@Address,@Password);";
                 OleDbCommand insertUserCommand = new OleDbCommand(insertUserQuery, connection);
-                insertUserCommand.Parameters.AddWithValue("@User", user.Name);
-                int rowsAffected = insertUserCommand.ExecuteNonQuery(); ; 
+                insertUserCommand.Parameters.AddWithValue("@Name", user.Name);
+                insertUserCommand.Parameters.AddWithValue("@Email", user.Email);
+                insertUserCommand.Parameters.AddWithValue("@Address", user.Address);
+                insertUserCommand.Parameters.AddWithValue("@Password", user.Password);
+                int rowsAffected = insertUserCommand.ExecuteNonQuery(); ;
 
                 if (rowsAffected > 0)
                 {
-                    MessageBox.Show("\nUser added to Inventory Successfully..");
+                    MessageBox.Show("\nRegistration Successful...");
                 }
                 else
                 {
-                    MessageBox.Show("Failed to add User to Inventory...");
+                    MessageBox.Show("Registration Failed...");
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error adding User: " + ex.Message);
+                MessageBox.Show("Error in Registration: " + ex.Message);
             }
             finally
             {
@@ -240,33 +248,100 @@ namespace BuyBooksOnline
             }
         }
 
+        // loginCheck Mthod to check the user 
+        public override bool LoginCheck(string email, int password)
+        {
+            try
+            {
+                // Query the database to check if there is a user with the provided email and password
+                Database database = Database.Instance;
+                OleDbConnection connection = database.GetConnection();
+                connection.Open();
+                string query = "SELECT Email, Password FROM Users WHERE Email = @Email AND Password = @Password";
+                OleDbCommand command = new OleDbCommand(query, connection);
+                command.Parameters.AddWithValue("@Email", email);
+                command.Parameters.AddWithValue("@Password", password);
+                OleDbDataReader reader = command.ExecuteReader();
+
+                // If a user with matching credentials is found
+                if (reader.Read())
+                {
+                    email = reader.GetString(0);
+                    password = reader.GetInt32(1);
+
+                    // MessageBox.Show(">>."+email +">>."+password);
+
+                    return true;
+                }
+                else
+                {
+                    MessageBox.Show("Invalid email or password. Please try again.");
+                }
+
+                // Close the database connection and release resources
+                reader.Close();
+                connection.Close();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error: " + ex.Message);
+            }
+
+            return false;
+        }
 
         // Method in the Database class to check if a user exists
         public override bool UserExists(string username)
         {
             bool userExists = false;
-            connection.Open();
+            try
+            {
 
-            string UserExistQuery = "SELECT COUNT(*) FROM Users WHERE Name = @Name";
+                connection.Open();
 
-            OleDbCommand UserExistCommand = new OleDbCommand(UserExistQuery, connection);
+                string UserExistQuery = "SELECT COUNT(*) FROM Users WHERE Name = @Name";
 
-            UserExistCommand.Parameters.AddWithValue("@Name", username);
+                OleDbCommand UserExistCommand = new OleDbCommand(UserExistQuery, connection);
 
-            int count = (int)UserExistCommand.ExecuteScalar();
+                UserExistCommand.Parameters.AddWithValue("@Name", username);
 
-            // Check if the count is greater than 0
-            userExists = (count > 0);
+                int count = (int)UserExistCommand.ExecuteScalar();
+
+                // Check if the count is greater than 0
+                userExists = (count > 0);
+
+                //return userExists;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error Finding User " + ex.Message);
+            }
+            finally
+            {
+                connection.Close();
+            }
 
             return userExists;
         }
 
+        // method to add the book to inventory
+        // it checks if the book already exists
+        // id exists then updates quantity
+        // otherwise inserts the book
         public override void AddBook(Book book)
         {
             try
             {
                 connection.Open();
 
+                // Checking if the book already exists in the Books table
+                string checkBookQuery = "SELECT BookId, Quantity FROM Books WHERE Title = @Title AND Author = @Author";
+                OleDbCommand checkBookCommand = new OleDbCommand(checkBookQuery, connection);
+                checkBookCommand.Parameters.AddWithValue("@Title", book.Title);
+                checkBookCommand.Parameters.AddWithValue("@Author", book.Author);
+                OleDbDataReader reader = checkBookCommand.ExecuteReader();
+
+                // Checking if the author already  exists in the Authors table
                 string authorIdQuery = "SELECT AuthorId FROM Authors WHERE Name = @Author";
                 OleDbCommand authorIdCommand = new OleDbCommand(authorIdQuery, connection);
                 authorIdCommand.Parameters.AddWithValue("@Author", book.Author);
@@ -275,49 +350,85 @@ namespace BuyBooksOnline
 
                 if (authorIdResult != null)
                 {
+                    // if Author exists get the AuthorId
                     authorId = Convert.ToInt32(authorIdResult);
                 }
                 else
                 {
-                    // adding authir to author table
-                    string insertAuthorQuery = "INSERT INTO Authors (Name) VALUES (@Author);";
+                    // if author does not exist then insert new author
+                    string insertAuthorQuery = "INSERT INTO Authors (Name) VALUES (@Author)";
                     OleDbCommand insertAuthorCommand = new OleDbCommand(insertAuthorQuery, connection);
                     insertAuthorCommand.Parameters.AddWithValue("@Author", book.Author);
                     insertAuthorCommand.ExecuteNonQuery();
 
+                    // After inserting the author get the generated AuthorId
                     string getAuthorIdQuery = "SELECT @@IDENTITY";
                     OleDbCommand getAuthorIdCommand = new OleDbCommand(getAuthorIdQuery, connection);
                     authorId = Convert.ToInt32(getAuthorIdCommand.ExecuteScalar());
                 }
 
-                // adding book to table 
-                string query = "INSERT INTO Books (Title, AuthorId, Author, Price, Quantity) VALUES (@Title, @AuthorId, @Author, @Price, @Quantity)";
-                OleDbCommand command = new OleDbCommand(query, connection);
-                command.Parameters.AddWithValue("@Title", book.Title);
-                command.Parameters.AddWithValue("@AuthorId", authorId);
-                command.Parameters.AddWithValue("@Author", book.Author);
-                command.Parameters.AddWithValue("@Price", book.Price);
-                command.Parameters.AddWithValue("@Quantity", book.Quantity);
-                int rowsAffected = command.ExecuteNonQuery();
 
-                if (rowsAffected > 0)
+
+                if (reader.Read())
                 {
-                    MessageBox.Show("\nBook added to Inventory Successfully..");
+                    // if Book already exists then update the quantity
+                    int existingBookId = reader.GetInt32(0);
+                    int existingQuantity = reader.GetInt32(1);
+                    int newQuantity = existingQuantity + book.Quantity;
+
+                    double newPrice = book.Price;
+
+                    string updateQuantityAndPriceQuery = "UPDATE Books SET Quantity = @Quantity, Price = @Price WHERE BookId = @BookId";
+                    OleDbCommand updateQuantityAndPriceCommand = new OleDbCommand(updateQuantityAndPriceQuery, connection);
+                    updateQuantityAndPriceCommand.Parameters.AddWithValue("@Quantity", newQuantity);
+                    updateQuantityAndPriceCommand.Parameters.AddWithValue("@Price", newPrice);
+                    updateQuantityAndPriceCommand.Parameters.AddWithValue("@BookId", existingBookId);
+                    int rowsAffected = updateQuantityAndPriceCommand.ExecuteNonQuery();
+
+                    if (rowsAffected > 0)
+                    {
+                        MessageBox.Show("Book updated successfully.");
+                    }
+                    else
+                    {
+                        MessageBox.Show("Failed to update Book.");
+                    }
                 }
                 else
                 {
-                    MessageBox.Show("Failed to add book to Inventory...");
+                    // if book does not exist then insert the book into the Books table with the AuthorId
+                    string insertBookQuery = "INSERT INTO Books (Title, AuthorId, Author, Price, Quantity) VALUES (@Title, @AuthorId, @Author, @Price, @Quantity)";
+                    OleDbCommand insertBookCommand = new OleDbCommand(insertBookQuery, connection);
+                    insertBookCommand.Parameters.AddWithValue("@Title", book.Title);
+                    insertBookCommand.Parameters.AddWithValue("@AuthorId", authorId);
+                    insertBookCommand.Parameters.AddWithValue("@Author", book.Author);
+                    insertBookCommand.Parameters.AddWithValue("@Price", book.Price);
+                    insertBookCommand.Parameters.AddWithValue("@Quantity", book.Quantity);
+                    int rowsAffected = insertBookCommand.ExecuteNonQuery();
+
+                    if (rowsAffected > 0)
+                    {
+                        MessageBox.Show("Book added to Inventory Successfully.");
+                    }
+                    else
+                    {
+                        MessageBox.Show("Failed to add book to Inventory.");
+                    }
                 }
+
+                reader.Close();
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error adding book: " + ex.Message);
+                MessageBox.Show("Error adding book: " + ex.Message +" " +ex.StackTrace);
             }
             finally
             {
                 connection.Close();
             }
         }
+
+
 
         // if user buys a book then the book is decremented by 1
         // method for selling the book to the user
@@ -330,7 +441,7 @@ namespace BuyBooksOnline
             {
                 connection.Open();
 
-                // checking if book exist in inventory or not
+                // Checking if book exists in inventory or not
                 string checkQuantityQuery = "SELECT Quantity FROM Books WHERE BookId = @BookId";
                 OleDbCommand checkQuantityCommand = new OleDbCommand(checkQuantityQuery, connection);
                 checkQuantityCommand.Parameters.AddWithValue("@BookId", bookId);
@@ -340,15 +451,14 @@ namespace BuyBooksOnline
                 {
                     if (quantity == 1)
                     {
-
-                        // updating books after selling and decrementing book
-                        string deleteQuery = "DELETE FROM Books WHERE BookId = @BookId";
-                        OleDbCommand deleteCommand = new OleDbCommand(deleteQuery, connection);
-                        deleteCommand.Parameters.AddWithValue("@BookId", bookId);
-                        int rowsAffected = deleteCommand.ExecuteNonQuery();
+                        // If the quantity is 1, set it to 0
+                        string updateQuery = "UPDATE Books SET Quantity = 0 WHERE BookId = @BookId";
+                        OleDbCommand updateCommand = new OleDbCommand(updateQuery, connection);
+                        updateCommand.Parameters.AddWithValue("@BookId", bookId);
+                        int rowsAffected = updateCommand.ExecuteNonQuery();
                         if (rowsAffected > 0)
                         {
-                            MessageBox.Show("Thanks for buying the book. Your book will be delivered to your address shortly.");
+                            MessageBox.Show("Thanks for buying the last copy of the book. Your book will be delivered to your address shortly.");
                         }
                         else
                         {
@@ -357,14 +467,14 @@ namespace BuyBooksOnline
                     }
                     else if (quantity > 1)
                     {
-                        // updating books after selling and decrementing book
+                        // Updating books after selling and decrementing book
                         string updateQuery = "UPDATE Books SET Quantity = Quantity - 1 WHERE BookId = @BookId";
                         OleDbCommand updateCommand = new OleDbCommand(updateQuery, connection);
                         updateCommand.Parameters.AddWithValue("@BookId", bookId);
                         int rowsAffected = updateCommand.ExecuteNonQuery();
                         if (rowsAffected > 0)
                         {
-                            MessageBox.Show("Thanks for buying the book. Your book will be delivered to your address shortly.");
+                            MessageBox.Show("Thanks for buying the book.\nYour book will be delivered to your address shortly.");
                         }
                         else
                         {
@@ -374,18 +484,26 @@ namespace BuyBooksOnline
                 }
                 else
                 {
-                    MessageBox.Show("Book with the entered ID not found.");
+                    MessageBox.Show("Can not buy this book right now Out of Stock..");
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                MessageBox.Show("Error: " + ex.Message); // Displaying the actual error message
                 MessageBox.Show("Can not buy this book right now.");
             }
             finally
             {
-                connection.Close();
+                // Ensure that the database connection is always closed
+                if (connection.State == ConnectionState.Open)
+                {
+                    connection.Close();
+                }
             }
         }
+
+
+
 
 
         // method for only admin access to remove
@@ -397,25 +515,25 @@ namespace BuyBooksOnline
             {
                 connection.Open();
 
-                // Checking for book if the book exist in table
-                string checkBookQuery = "SELECT COUNT(*) FROM Books WHERE BookId = @BookId";
+                // Checking for book if the book exists in the table
+                string checkBookQuery = "SELECT COUNT(*) FROM Books WHERE BookId = @BookID";
                 OleDbCommand checkBookCommand = new OleDbCommand(checkBookQuery, connection);
-                checkBookCommand.Parameters.AddWithValue("@BookId", bookId);
+                checkBookCommand.Parameters.AddWithValue("@BookID", bookId);
                 int bookCount = Convert.ToInt32(checkBookCommand.ExecuteScalar());
 
-                // if book exists, delete the book
+                // If book exists, delete the book
                 if (bookCount > 0)
                 {
-                    // 1st Delete ratings of the book from the Ratings table
-                    string deleteRatingsQuery = "DELETE FROM Ratings WHERE BookId = @BookId";
+                    // Delete ratings of the book from the Ratings table
+                    string deleteRatingsQuery = "DELETE FROM Ratings WHERE BookId IN (SELECT BookId FROM Books WHERE BookId = @BookID)";
                     OleDbCommand deleteRatingsCommand = new OleDbCommand(deleteRatingsQuery, connection);
-                    deleteRatingsCommand.Parameters.AddWithValue("@BookId", bookId);
+                    deleteRatingsCommand.Parameters.AddWithValue("@BokID", bookId);
                     deleteRatingsCommand.ExecuteNonQuery();
 
-                    // then delete the book from the Books table
+                    // Delete the book from the Books table
                     string deleteBookQuery = "DELETE FROM Books WHERE BookId = @BookId";
                     OleDbCommand deleteBookCommand = new OleDbCommand(deleteBookQuery, connection);
-                    deleteBookCommand.Parameters.AddWithValue("@BookId", bookId);
+                    deleteBookCommand.Parameters.AddWithValue("@BookID", bookId);
                     int rowsAffected = deleteBookCommand.ExecuteNonQuery();
 
                     if (rowsAffected > 0)
@@ -424,12 +542,12 @@ namespace BuyBooksOnline
                     }
                     else
                     {
-                        MessageBox.Show("Book with the entered ID not found.");
+                        MessageBox.Show("Book with the entered Id not found.");
                     }
                 }
                 else
                 {
-                    MessageBox.Show("Book with the entered ID not found.");
+                    MessageBox.Show("Book with the entered Id not found.");
                 }
             }
             catch (Exception)
@@ -441,6 +559,7 @@ namespace BuyBooksOnline
                 connection.Close();
             }
         }
+
 
 
         // Method to view inventory and all available books
@@ -498,11 +617,11 @@ namespace BuyBooksOnline
                 connection.Open();
 
                 string query = @"
-                                SELECT b.BookId, b.Title, b.Author, b.Price, 
-                                IIF(ISNULL(AVG(r.Rating)), 0, AVG(r.Rating)) AS AverageRating
-                                FROM Books AS b
-                                LEFT JOIN Ratings AS r ON b.BookId = r.BookId
-                                GROUP BY b.BookId, b.Title, b.Author, b.Price";
+                                 SELECT b.BookId, b.Title, b.Author, b.Price, 
+                                 IIF(ISNULL(AVG(r.Rating)), 0, AVG(r.Rating)) AS AverageRating
+                                 FROM Books AS b
+                                 LEFT JOIN Ratings AS r ON b.BookId = r.BookId
+                                 GROUP BY b.BookId, b.Title, b.Author, b.Price";
 
                 OleDbCommand command = new OleDbCommand(query, connection);
                 OleDbDataAdapter adapter = new OleDbDataAdapter(command);
@@ -530,6 +649,47 @@ namespace BuyBooksOnline
             return booksTable;
         }
 
+
+        // Method to view all the registered
+        // it displays the users list registered
+        // and other user related information
+        public override DataTable ViewUsers()
+        {
+            DataTable booksTable = new DataTable();
+            try
+            {
+                connection.Open();
+
+                string query = @"
+                                SELECT u.UserId, u.Name, u.Email, u.Address, u.Password
+                                FROM Users AS u
+                                GROUP BY u.UserId, u.Name, u.Email, u.Address, u.Password";
+
+                OleDbCommand command = new OleDbCommand(query, connection);
+                OleDbDataAdapter adapter = new OleDbDataAdapter(command);
+
+                adapter.Fill(booksTable);
+
+                if (booksTable.Rows.Count > 0)
+                {
+                    //  MessageBox.Show("books found in the inventory.");
+                }
+                else
+                {
+                    MessageBox.Show("No books found in the inventory.");
+                }
+            }
+            catch (Exception)
+            {
+                MessageBox.Show("Error browsing books.");
+            }
+            finally
+            {
+                connection.Close();
+            }
+
+            return booksTable;
+        }
 
         // method for users to rate the book when they buy the book 
         // or anytim after that if they like the book

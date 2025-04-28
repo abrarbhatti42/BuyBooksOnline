@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Data.OleDb;
 using System.Data.SqlClient;
 using System.Windows.Forms;
@@ -7,6 +8,7 @@ namespace BuyBooksOnline
 {
     public partial class LoginForm : Form
     {
+
         static string username;
 
         public LoginForm()
@@ -14,70 +16,54 @@ namespace BuyBooksOnline
             InitializeComponent();
         }
 
-        private void buttonRegister_Click_1(object sender, EventArgs e)
+        // event handler to show the registration form
+        private void buttonRegister_Click(object sender, EventArgs e)
         {
-            RegisterForm form2 = new RegisterForm();
-            form2.Show();
-            this.Hide();
+            AdminForm adminForm = new AdminForm();
+            adminForm.Hide();
+            adminForm.Close();
+
+            RegisterForm registerForm = new RegisterForm();
+            registerForm.Show();
         }
 
-        private void buttonLogin_Click_1(object sender, EventArgs e)
+        // event handler to show the form based on user type logs in
+        private void buttonLogin_Click(object sender, EventArgs e)
         {
-        
-            // Display The Customer/admin based on user type
-            // 1. admin
-            // 2. user/customer
-
-            
-            int password;
-            bool userExists;
-
-            BookRepository repository = new ConcreteBookRepository(Database.Instance.GetConnection());
-            
-
-            // user credentials
             try
             {
-                username = textBoxUsername.Text;
-
-                userExists = repository.UserExists(username);
-
-                password = int.Parse(textBoxPassword.Text);
+                Database database = Database.Instance;
+                database.CreateTablesIfNotExist();
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                MessageBox.Show("Input Correct username and password");
-                return;
+                MessageBox.Show("Error  : " + ex.Message +" " +ex.StackTrace);
             }
 
-            if(userExists)
+            // Get the user's input for email and password
+            string username = textBoxUsername.Text;
+            int password = int.Parse(textBoxPassword.Text);
+
+            BookRepository repository = new ConcreteBookRepository(Database.Instance.GetConnection());
+
+            bool userFound = repository.LoginCheck(username, password);
+
+            if(userFound == true)
             {
-                // user validation
-                if (username == "admin" && password == 1234)
+                if (username == "admin@gmail.com" && password == 1234)
                 {
-                    AdminFrom form4 = new AdminFrom();
-                    form4.Show();
-                    this.Hide();
 
-                    // Inititate Database and create table 
-                    try
-                    {
-                        Database database = Database.Instance;
-                        database.CreateTablesIfNotExist();
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show("Error " + ex.Message);
-                    }
 
-                }
-                else if (username == "user" && password == 1234)
-                {
-                    CustomerFrom form3 = new CustomerFrom();
-                    form3.Show();
-                    this.Hide();
+                    AdminForm adminFrom = new AdminForm();
+                    adminFrom.Show();
 
-                    // Inititate Database and create table 
+                    LoginForm loginForm = new LoginForm();
+                    loginForm.Hide();
+                    loginForm.Close();
+
+
+                    // getting database instane
+                    // and chcing for tables if they exist
                     try
                     {
                         Database database = Database.Instance;
@@ -90,11 +76,15 @@ namespace BuyBooksOnline
                 }
                 else
                 {
-                    CustomerFrom form3 = new CustomerFrom();
-                    form3.Show();
-                    this.Hide();
+                    CustomerForm customerForm = new CustomerForm();
+                    customerForm.Show();
 
-                    // Inititate Database and create table 
+                    LoginForm loginForm = new LoginForm();
+                    loginForm.Hide();
+                    loginForm.Close();
+
+                    // getting database instane
+                    // and chcing for tables if they exist
                     try
                     {
                         Database database = Database.Instance;
@@ -104,13 +94,17 @@ namespace BuyBooksOnline
                     {
                         MessageBox.Show("Error " + ex.Message);
                     }
-                   
                 }
             }
             else
             {
                 MessageBox.Show("Input Correct username and password");
+                return;
             }
+
+            // finally clearing the textboxes
+            textBoxUsername.Clear();
+            textBoxPassword.Clear();
         }
 
         private void buttonExit1_Click_1(object sender, EventArgs e)
